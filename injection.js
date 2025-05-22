@@ -94,7 +94,10 @@ function parseUnit(data) {
       if (split >= 3) {
         unit = split[split.length - 2];
         amount = split[split.length - 1];
-      } else return; // 파싱 실패
+      } else {
+        console.log("FAILED PARSING");
+        return; // 파싱 실패
+      }
     }
 
     unitForm = unit.replace(/\d+(\.\d+)?/g, "").toLowerCase();
@@ -111,13 +114,11 @@ function parseUnit(data) {
     }
 
     if (unitForm == "ml") {
-      unit /= 10;
+      unit *= 10;
       unitForm = 10 + unitForm;
-      pricePerUnit /= 10;
     } else if (unitForm == "g") {
-      unit /= 100;
+      unit *= 100;
       unitForm = 100 + unitForm;
-      pricePerUnit /= 100;
     }
 
     let pricePerUnit = totalPrice / unit;
