@@ -84,26 +84,30 @@ function parseUnit(data) {
     let unitForm = null;
     let amountForm = null;
 
+    let split = [];
     if (data.unitPrice) {
-      let split = data.unitPrice.slice(1, -1).split(" ");
+      split = data.unitPrice.slice(1, -2).split(" ");
       unit = split[0].slice(0, -1);
-      amount = split[1];
+      amount = "1";
+      totalPrice = split[1].replace(",", "");
+      totalPrice = Number(totalPrice.match(/\d+(\.\d+)?/g)?.[0] ?? 0);
     } else {
-      let split = data.name.split(", ");
-      if (split > 3) split = data.name.split(" "); // 일단 띄어쓰기라도 구분
+      split = data.name.split(", ");
+      if (split < 3) split = data.name.split(" "); // 일단 띄어쓰기라도 구분
       if (split >= 3) {
         unit = split[split.length - 2];
         amount = split[split.length - 1];
-      } else {
-        console.log("FAILED PARSING");
-        return; // 파싱 실패
-      }
+      } else throw new Error("failed to parse: invalid format"); // 파싱 실패
     }
 
     unitForm = unit.replace(/\d+(\.\d+)?/g, "").toLowerCase();
     unit = Number(unit.match(/\d+(\.\d+)?/g)?.[0] ?? 0);
     amountForm = amount.replace(/\d+(\.\d+)?/g, "");
     amount = Number(amount.match(/\d+(\.\d+)?/g)?.[0] ?? 0);
+
+    let availableUnits = ["ml", "l", "g", "kg"];
+    if (!availableUnits.includes(unitForm))
+      throw new Error(`failed to parse: invalid unit ${unitForm}(${split})`);
 
     if (unitForm == "l") {
       unit *= 1000;
@@ -113,21 +117,19 @@ function parseUnit(data) {
       unitForm = "g";
     }
 
-    if (unitForm == "ml") {
-      unit *= 10;
-      unitForm = 10 + unitForm;
-    } else if (unitForm == "g") {
-      unit *= 100;
-      unitForm = 100 + unitForm;
+    let pricePerUnit = totalPrice / unit; // 1ml/1g 당 가격
+    let unitMultiply = { ml: 100, g: 100 }; // 단위 환산 배수
+    if (unitMultiply[unitForm]) {
+      pricePerUnit *= unitMultiply[unitForm];
+      unitForm = unitMultiply[unitForm] + unitForm;
     }
 
-    let pricePerUnit = totalPrice / unit;
     return {
       pricePerUnit: pricePerUnit,
       unitForm: unitForm,
     };
   } catch (error) {
-    console.log(error);
+    console.log(`no unit price - ${data.name}\n${error}`);
   }
 }
 
@@ -164,10 +166,7 @@ function readPage(html) {
     };
 
     let unitData = parseUnit(data);
-    if (!unitData) {
-      console.log(`no unit price - ${data.name}`);
-      continue; // 가격 파싱 불가
-    }
+    if (!unitData) continue; // 가격 파싱 불가
 
     data.unitData = unitData;
     productDatas.push(data);
@@ -208,15 +207,20 @@ async function load() {
   }
 
   console.log(productDatas);
+  return productDatas.sort((a, b) => {
+    if (a.unitData.pricePerUnit < b.unitData.pricePerUnit) return -1;
+    else if (a.unitData.pricePerUnit > b.unitData.pricePerUnit) return 1;
+    else return 0;
+  });
 }
 
 // 메인
 const messager = new InjectionMessager("coupang_ranker_extension");
 messager.onMessage = async function (message, sendResponse) {
   if (message.act == "load") {
-    await load();
+    let productDatas = await load();
     console.log("load complete");
-    sendResponse(true);
+    sendResponse(productDatas);
   }
 };
 
