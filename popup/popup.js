@@ -12,6 +12,14 @@ function sendServer(act, params) {
   });
 }
 
+function movePage(url) {
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    chrome.tabs.create({ url: url });
+    // const tab = tabs[0];
+    // chrome.tabs.update(tab.id, { url: url });
+  });
+}
+
 function htmlToNode(html) {
   const template = document.createElement("template");
   template.innerHTML = html.trim();
@@ -50,6 +58,7 @@ async function load() {
   for (let productData of loadResult) {
     let li = htmlToNode(`
     <li>
+      <a class="product_link"></a>
       <div class="product_left">
         <img class="product_image" />
       </div>
@@ -60,15 +69,23 @@ async function load() {
     </li>
     `);
 
-    console.log(li);
+    let productLink = li.querySelector(".product_link");
     let productName = li.querySelector(".product_name");
     let productPriceTotal = li.querySelector(".product_price_total");
+    let productImage = li.querySelector(".product_image");
     // let productPriceUnit = li.querySelector(".product_price_unit");
+
+    productLink.href = productData.link;
     productName.textContent = productData.name;
 
     let unitText = `(${productData.unitData.unitForm}/${productData.unitData.pricePerUnit}원)`;
     productPriceTotal.textContent = `${productData.price + productData.feePrice}원${unitText}`;
+    productImage.src = productData.image;
     // productPriceUnit.textContent = unitText;
+
+    productLink.addEventListener("click", () => {
+      movePage(productLink.href);
+    });
     ul.appendChild(li);
   }
 
